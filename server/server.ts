@@ -19,12 +19,84 @@ interface Group {
   groupName: string;
   members: Student[];
 }
+class Groups {
+  groups: Group[];
+  groupId: number;
+  studentId: number;
+
+  constructor() {
+    this.groups = [];
+    this.groupId = 0;
+    this.studentId = 0;
+  }
+  /**
+   * Return a group object
+   * 
+   */
+  getGroup(id: number): Group | undefined {
+    return this.groups.find(group => group.id == id)
+  }
+   /**
+   * Return a group summary
+   * 
+   */
+  getAllGroupSummary(): GroupSummary[] {
+    return this.groups.map(this.createGroupSummary);
+  }
+
+  getAllStudents(): Student[] {
+    return this.groups.flatMap((group) => group.members);
+  }
+
+  createGroupSummary(group: Group): GroupSummary {
+    return {
+      id: group.id,
+      groupName: group.groupName,
+      members: group.members.map((student) => student.id),
+    };
+  }
+
+  createGroup(groupName: string, members: string[]): GroupSummary {
+    const newGroup: Group = {
+      id: this.groupId++,
+      groupName,
+      members: members.map(this.createStudent, this),
+    };
+    this.groups.push(newGroup);
+    return this.createGroupSummary(newGroup);
+  }
+
+  createStudent(name: string): Student {
+    return {
+      id: this.studentId++,
+      name,
+    };
+  }
+  deleteGroup(id: number): boolean {
+    const index = this.groups.findIndex(group => group.id == id);;
+    if (index != -1) {
+      this.groups.splice(index, 1);
+      return true;
+    }
+    return false;
+  }
+}  
+function is_invalid_name(name: string): boolean {
+  name = name.trim();
+ if (name.length > 0 && name.match(/^[a-zA-Z0-9 ]+$/)){
+  return true;
+ }
+return false;
+}
 
 const app = express();
 const port = 3902;
 
 app.use(cors());
 app.use(express.json());
+
+const allGroups = new Groups();
+////////////////////////////////////////////////////////////////////////////////
 
 /**
  * Route to get all groups
@@ -33,18 +105,12 @@ app.use(express.json());
  */
 app.get('/api/groups', (req: Request, res: Response) => {
   // TODO: (sample response below)
-  res.json([
-    {
-      id: 1,
-      groupName: 'Group 1',
-      members: [1, 2, 4],
-    },
-    {
-      id: 2,
-      groupName: 'Group 2',
-      members: [3, 5],
-    },
-  ]);
+  // const groupSummaries: GroupSummary[] = groups.map(group => ({
+  //   id: group.id,
+  //   groupName: group.groupName,
+  //   members: group.members.map(member => member.id),
+  // }));
+  res.json(allGroups.getAllGroupSummary());
 });
 
 /**
@@ -54,13 +120,7 @@ app.get('/api/groups', (req: Request, res: Response) => {
  */
 app.get('/api/students', (req: Request, res: Response) => {
   // TODO: (sample response below)
-  res.json([
-    { id: 1, name: 'Alice' },
-    { id: 2, name: 'Bob' },
-    { id: 3, name: 'Charlie' },
-    { id: 4, name: 'David' },
-    { id: 5, name: 'Eve' },
-  ]);
+  res.json(allGroups.getAllStudents());
 });
 
 /**
@@ -72,11 +132,24 @@ app.get('/api/students', (req: Request, res: Response) => {
  */
 app.post('/api/groups', (req: Request, res: Response) => {
   // TODO: implement storage of a new group and return their info (sample response below)
-  res.json({
-    id: 3,
-    groupName: 'New Group',
-    members: [1, 2],
-  });
+  const { groupName, members } = req.body;
+  if (members.length == 0) {
+    res.status(400).send("Group con not be empty!")
+    return;
+  }
+  //TODO: edge Case
+  // for (const name of [groupName].concat(members)) {
+  //   if (name == null) {
+  //     res.status(400).send('cannot be empty')
+  //     return;
+  //   }
+  //   if (is_invalid_name(name)) {
+  //     res.status(400).send('invalid name');
+  //     return;
+  //   }
+  // }
+  res.json(allGroups.createGroup(groupName, members));
+ 
 });
 
 /**
@@ -87,6 +160,18 @@ app.post('/api/groups', (req: Request, res: Response) => {
  */
 app.delete('/api/groups/:id', (req: Request, res: Response) => {
   // TODO: (delete the group with the specified id)
+  const id = parseInt(req.params.id);
+
+  const group = allGroups.getGroup(id);
+  if (group == undefined) {
+    res.status(404).send('group not foud')
+    return
+  }
+
+  if (!allGroups.deleteGroup(id)) {
+    res.status(500).send('could not delete')
+    return
+  }
 
   res.sendStatus(204); // send back a 204 (do not modify this line)
 });
@@ -99,15 +184,15 @@ app.delete('/api/groups/:id', (req: Request, res: Response) => {
  */
 app.get('/api/groups/:id', (req: Request, res: Response) => {
   // TODO: (sample response below)
-  res.json({
-    id: 1,
-    groupName: 'Group 1',
-    members: [
-      { id: 1, name: 'Alice' },
-      { id: 2, name: 'Bob' },
-      { id: 3, name: 'Charlie' },
-    ],
-  });
+  const id = parseInt(req.params.id);
+
+  const group = allGroups.getGroup(id);
+  if (group == undefined) {
+    res.status(404).send('group not found');
+    return;
+  }
+
+  res.json(group);
 
   /* TODO:
    * if (group id isn't valid) {
